@@ -31,4 +31,10 @@
 - Segyio (работа с SEG-Y)
 - Scikit-learn (MinMaxScaler)
 
+## Запуск
+
+```
+python main.py
+```
+
 <sub>© 2025 Сергей Сергеев</sub>
