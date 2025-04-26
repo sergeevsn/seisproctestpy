@@ -1,37 +1,51 @@
 # <span style="color: #2c5f2d;">SeisProcTestPy</span>
 ### Version 1.0
 
-Программа для тестирования обрабатывающих процедур для файлов в формате SEG-Y.
+A Python-based tool for testing processing workflows on SEG-Y format seismic data.
 
 ![Preview of SeisProcTestPy](preview.jpg)
 
-## Основные возможности:
+## Key Features:
 
-- Загрузка/экспорт 2D сейсмических данных в формате SEG-Y
-- Визуализация данных с настройкой цветовых карт и усиления
-- Перебор всех заданных параметров с использованием пользовательских алгоритмов
-- Можно использовать любую процедуру из любой доступной python библиотеки, принимающую на вход 2D ndarray и набор параметров
-- Сравнение оригинальных и обработанных данных
-- Интерактивный зум с помощью мыши (выделение области - ЛКМ, сброс зума - ПКМ)
+- Import/export 2D seismic data in SEG-Y format
 
-## Ограничения:
+- Interactive visualization with customizable color maps and gain settings
 
-- Загружает сразу все трассы, поэтому подходит для сейсмических разрезов или для единичных сейсмограмм
-- Реализация на python накладывает ограничения на быстродействие интерфейса. Имеет смысл работать с небольшими файлами
-- Редактирование параметров в JSON не очень удобно
+- Parameter sweep testing for user-defined algorithms
 
-## Замечания:
-- Перед обработкой данные скалируются на диапазон (0, 1), затем при выводе возвращаются к исходному диапазону
+- Flexible integration: Supports any Python library function that accepts a 2D ndarray + parameters
 
-## Технологии:
+- A/B comparison between original and processed data
 
-- PyQt5 (GUI)
-- Matplotlib (визуализация)
-- Numpy (обработка данных)
-- Segyio (работа с SEG-Y)
-- Scikit-learn (MinMaxScaler)
+- Mouse-driven zoom:
 
-## Запуск
+Left-click + drag to zoom in
+
+Right-click to reset view
+
+## Limitations:
+
+- Full-trace loading: Designed for 2D seismic sections or single gathers (not optimized for large 3D volumes)
+
+- Performance constraints: Python/PyQt5 may limit UI responsiveness with very large files
+
+- JSON parameter editing: Less intuitive than GUI-based configuration
+
+## Notes:
+- Input data is auto-scaled to [0, 1] before processing and reverted to original range for display
+
+# Tech Stack:
+- PyQt5 (GUI framework)
+
+- Matplotlib (visualization)
+
+- NumPy (array processing)
+
+- Segyio (SEG-Y I/O)
+
+- Scikit-learn (MinMaxScaler for normalization)
+
+## Usage:
 
 ```
 python main.py
