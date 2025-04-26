@@ -1,9 +1,17 @@
 {
   "scipy.signal.medfilt2d": {
-    "kernel_size": [3, 5, 7, 9]    
+    "kernel_size": [3, 5]    
   },
  
   "skimage.restoration.denoise_tv_chambolle": {
-    "weight": [0.1, 0.3, 0.5]
+    "weight": [0.05, 0.1, 0.2]
+  },
+
+  "skimage.restoration.denoise_wavelet": {
+    "method": ["BayesShrink"],
+    "wavelet": ["sym4", "db4"],
+    "mode": ["soft"],
+    "rescale_sigma": [true],
+    "sigma": [0.05, 0.1, 0.2]
   }
 }

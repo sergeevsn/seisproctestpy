@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from about import *
+from PyQt5.QtGui import QScreen
 
 class ParamEditDialog(QDialog):
     def __init__(self, parent=None):
@@ -63,7 +64,20 @@ class SeisProcTester(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SeisProcTestPy")
-        self.setGeometry(100, 100, 2400, 1200)
+        # Получаем размеры экрана
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()  # Рабочая область (без панели задач)
+        
+        # Устанавливаем размер окна (например, 80% от рабочей области)
+        width = int(screen_geometry.width() * 0.9)
+        height = int(screen_geometry.height() * 0.9)
+        self.resize(width, height)
+        
+        # Центрируем окно (опционально)
+        self.move(
+            (screen_geometry.width() - width) // 2,
+            (screen_geometry.height() - height) // 2
+        )
 
         # Data containers
         self.raw_data = None
