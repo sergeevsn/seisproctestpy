@@ -82,7 +82,7 @@ class SeisProcTester(QMainWindow):
         # Data containers
         self.raw_data = None
         self.scaled_data = None
-        self.denoised_real = None
+        self.processed_real = None
         self.param_sets = []
         self.current_index = 0
         self.last_opened_file = None
@@ -187,7 +187,7 @@ class SeisProcTester(QMainWindow):
         self.raw_data = data.astype(float)
         self.scaler = MinMaxScaler().fit(self.raw_data.reshape(-1,1))
         self.scaled_data = self.scaler.transform(self.raw_data.reshape(-1,1)).reshape(self.raw_data.shape)
-        self.denoised_real = None
+        self.processed_real = None
         self.param_sets.clear(); self.param_combo.clear(); self.current_index = 0
         self.file_label.setText(f"File Loaded: {path} shape={self.raw_data.shape}")
         self.update_images()
@@ -278,7 +278,7 @@ class SeisProcTester(QMainWindow):
             label = f"{i+1}: {fn} " + ", ".join(f"{k}={v}" for k, v in params.items())
             self.param_combo.addItem(label)
             self.progress_bar.setValue(int((i+1)/total*100))
-        self.denoised_real = np.array(real_list)
+        self.processed_real = np.array(real_list)
         self.current_index = 0; self.param_combo.setCurrentIndex(0)
         self.progress_bar.setVisible(False); self.param_combo.setEnabled(True)
         self.stop_button.setVisible(False)
@@ -342,12 +342,12 @@ class SeisProcTester(QMainWindow):
         self.ax[0].set_title("Original")
         for a in self.ax[1:]:
             a.clear()
-        if self.denoised_real is not None:
-            real = self.denoised_real[self.current_index]
+        if self.processed_real is not None:
+            real = self.processed_real[self.current_index]
             den_disp = real.T
             vmin, vmax = np.percentile(orig_disp, [gain, 100 - gain])
             self.ax[1].imshow(den_disp, aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-            self.ax[1].set_title("Denoised")
+            self.ax[1].set_title("processed")
             diff = (self.raw_data - real).T
             if gain > 0:
                 dvmin = np.percentile(orig_disp, gain)
@@ -357,7 +357,7 @@ class SeisProcTester(QMainWindow):
             self.ax[2].imshow(diff, aspect='auto', cmap=cmap, vmin=dvmin, vmax=dvmax)
             self.ax[2].set_title("Difference")
         else:
-            self.ax[1].set_title("Denoised (n/a)")
+            self.ax[1].set_title("Processed (n/a)")
             self.ax[2].set_title("Difference (n/a)")
         for i in range(3):
             if self.current_xlims[i] != (0.0, 1.0):
@@ -369,7 +369,7 @@ class SeisProcTester(QMainWindow):
         self.processing_stopped = True
 
     def save_segy(self):
-        if self.raw_data is None or self.denoised_real is None:
+        if self.raw_data is None or self.processed_real is None:
             QMessageBox.warning(self, "Cannot Save", "Load & process before save.")
             return
         path, _ = QFileDialog.getSaveFileName(self, "Save SEG-Y File", filter="SEG-Y Files (*.sgy *.segy)")
@@ -377,7 +377,7 @@ class SeisProcTester(QMainWindow):
             return
         shutil.copyfile(self.last_opened_file, path)
         with segyio.open(path, 'r+', ignore_geometry=True) as f:
-            real = self.denoised_real[self.current_index]
+            real = self.processed_real[self.current_index]
             for i in range(real.shape[0]):
                 f.trace.raw[i] = real[i]
         QMessageBox.information(self, "Save Successful", f"Saved to:\n{path}")
