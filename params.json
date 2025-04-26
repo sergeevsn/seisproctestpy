@@ -1,0 +1,9 @@
+{
+  "scipy.signal.medfilt2d": {
+    "kernel_size": [3, 5, 7, 9]    
+  },
+ 
+  "skimage.restoration.denoise_tv_chambolle": {
+    "weight": [0.1, 0.3, 0.5]
+  }
+}
