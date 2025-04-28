@@ -25,11 +25,15 @@ Right-click to reset view
 
 - Saving figures to mp4 movie
 
+- Application of the chosen procedure/parameter set to a set of SEG-Y files in specified folder
+
 ## Limitations:
 
 - Full-trace loading: Designed for 2D seismic sections or single gathers (not optimized for large 3D volumes)
 
 - Performance constraints: Python/PyQt5 may limit UI responsiveness with very large files
+
+- All testing results are kept in memory, so not too much variants please!
 
 - JSON parameter editing: Less intuitive than GUI-based configuration
 

@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-     QDialog, QTextEdit, QVBoxLayout
+    QDialog, QTextEdit, QVBoxLayout
 )
 
 class AboutDialog(QDialog):
@@ -12,40 +12,43 @@ class AboutDialog(QDialog):
         text_edit.setHtml('''
             <h1 style="color: #2c5f2d;">SeisProcTestPy</h1>
             <h3>Version 1.0</h3>
-            <p>Программа для тестирования обрабатывающих процедур для файлов в фомате SEG-Y.</p>             
+            <p>A program for testing processing procedures for files in SEG-Y format.</p>             
             
-            <h3>Основные возможности:</h3>
-
-                <li>Загрузка/экспорт 2D сейсмических данных в формате SEG-Y</li>
-                <li>Визуализация данных с настройкой цветовых карт и усиления</li>
-                <li>Обработка заданных сочетаний параметров с использованием пользовательских алгоритмов</li>
-                <li>Можно использовать любую процедуру из любой доступной python библиотеки, принимающую на вход 
-                2D ndarray и набор параметров </li>
-                <li>Сравнение оригинальных и обработанных данных</li>
-                <li>Интерактивный зум с помощью мыши (выделение области - ЛКМ, сброс зума - ПКМ) </li>
+            <h3>Main Features:</h3>
+            <ul>
+                <li>Loading/exporting 2D seismic data in SEG-Y format</li>
+                <li>Data visualization with customizable color maps and gain settings</li>
+                <li>Processing specified parameter combinations using custom algorithms</li>
+                <li>You can use any procedure from any available Python library that accepts a 
+                2D ndarray and a set of parameters as input</li>
+                <li>Comparison of original and processed data</li>
+                <li>Interactive zoom using the mouse (region selection - left click, reset zoom - right click)</li>
+                <li>Saving figures to mp4 movie</li>
+                <li>Applying the chosen procedure/parameter set to a collection of SEG-Y files in a specified folder</li>
             </ul>
                           
-            <h3>Ограничения:</h3>
+            <h3>Limitations:</h3>
             <ul>
-                <li>Загружает сразу все трассы, поэтому подходит для сейсмических разрезов или для единичных сейсмограмм</li>
-                <li>Реализация на python накладывает ограничения на быстродействие интерфейса. Имеет смысл работать с небольшими файлами</li>
-                <li>Редактирование параметров в JSON не очень удобна</li>                
+                <li>Loads all traces at once, so it is suitable for seismic sections or single seismograms</li>
+                <li>The Python implementation imposes limitations on interface performance. It is recommended to work with small files</li>
+                <li>All test results are stored in memory, so please avoid too many variants!</li>
+                <li>Editing parameters in JSON is not very convenient</li>                
             </ul>
             
-            <h3>Технологии:</h3>
+            <h3>Technologies:</h3>
             <ul>
                 <li>PyQt5 (GUI)</li>
-                <li>Matplotlib (визуализация)</li>
-                <li>Numpy (обработка данных)</li>
-                <li>Segyio (работа с SEG-Y)</li>
+                <li>Matplotlib (visualization)</li>
+                <li>Numpy (data processing)</li>
+                <li>Segyio (working with SEG-Y)</li>
+                <li>imageio-ffmpeg (Figures to movie)</li>
             </ul>
-            <p style="color: #666;">© 2025 Сергей Сергеев</p>
+            <p style="color: #666;">© 2025 Sergey Sergeev</p>
         ''')
         text_edit.setReadOnly(True)
         layout.addWidget(text_edit)
         self.setLayout(layout)
 
-# В классе SectionProcessor добавлен метод:
 def show_about(self):
     about = AboutDialog(self)
     about.exec_()
