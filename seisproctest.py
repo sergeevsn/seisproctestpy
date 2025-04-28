@@ -177,8 +177,9 @@ class SeisProcTester(QMainWindow):
         params_menu.addAction(QAction("Edit", self, triggered=self.edit_params))
         params_menu.addAction(QAction("Save Params As", self, triggered=self.save_params_as))
 
-        process_menu = menubar.addMenu("Process")
-        process_menu.addAction(QAction("Process", self, triggered=self.process_data))
+        process_menu = menubar.addMenu("Process")     
+        process_menu.addAction(QAction("Run testing", self, triggered=self.process_data))
+        process_menu.addAction(QAction("Apply to Folder", self, triggered=self.apply_to_folder))
 
         help_menu = menubar.addMenu("Help")
         help_menu.addAction(QAction("About", self, triggered=self.show_about))
@@ -538,6 +539,94 @@ class SeisProcTester(QMainWindow):
         self.current_index = new_idx
         self.param_combo.setCurrentIndex(new_idx)
         self.update_images()
+    
+    def apply_to_folder(self):
+        # Убедимся, что есть наборы параметров и выбран какой-то из них
+        if not self.param_sets:
+            QMessageBox.warning(self, "Нет параметров", 
+                                "Сначала выполните Process, чтобы сгенерировать наборы параметров.")
+            return
+
+        # Выбираем папку
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder with SEG-Y files")
+        if not folder:
+            return
+
+        # Находим все .sgy/.segy в корне папки
+        files = [f for f in os.listdir(folder)
+                 if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(('.sgy', '.segy'))]
+        if not files:
+            QMessageBox.information(self, "Нет файлов", 
+                                    "В выбранной папке нет .sgy или .segy файлов.")
+            return
+
+        # Берём текущий выбранный метод + параметры
+        pd = self.param_sets[self.current_index]
+        proc_name = pd['method'].split('.')[-1]
+        params = {k: v for k, v in pd.items() if k != 'method'}
+        suffix = "_".join(f"{k}{v}" for k, v in params.items())
+        subfolder_name = f"{proc_name}_{suffix}" if suffix else proc_name
+        out_dir = os.path.join(folder, subfolder_name)
+        os.makedirs(out_dir, exist_ok=True)
+
+        # Подготовка прогресса
+        total = len(files)
+        self.processing_stopped = False
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(0)
+        self.processing_label.setVisible(True)
+        self.processing_label.setText(f"Processing folder: {folder}, subfolder for results: {subfolder_name}")
+        self.stop_button.setVisible(True)
+        QApplication.processEvents()
+
+        # Обрабатываем каждый файл
+        processed_count = 0
+        for idx, fname in enumerate(files, 1):
+            if self.processing_stopped:
+                break
+
+            src = os.path.join(folder, fname)
+            dst = os.path.join(out_dir, fname)
+            shutil.copyfile(src, dst)
+
+            try:
+                with segyio.open(dst, 'r+', ignore_geometry=True) as f:
+                    # читаем, масштабируем, обрабатываем и записываем обратно
+                    traces = f.trace.raw[:].T.astype(np.float32)
+                    scaler = MinMaxScaler().fit(traces.reshape(-1,1))
+                    scaled = scaler.transform(traces.reshape(-1,1)).reshape(traces.shape)
+                    mod, fn = pd['method'].rsplit('.', 1)
+                    func = getattr(importlib.import_module(mod), fn)
+                    processed = func(scaled, **params)
+                    inv = scaler.inverse_transform(processed.reshape(-1,1)).reshape(processed.shape).T
+                    for i in range(inv.shape[0]):
+                        f.trace.raw[i] = inv[i]
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка обработки",
+                                     f"При обработке файла {fname} произошла ошибка:\n{e}")
+                break
+
+            processed_count += 1
+            self.progress_bar.setValue(idx)
+            QApplication.processEvents()
+
+        # Скрываем прогресс и stop-кнопку
+        self.progress_bar.setVisible(False)
+        self.processing_label.setVisible(False)
+        self.stop_button.setVisible(False)
+
+        # Итоговое сообщение
+        if self.processing_stopped:
+            QMessageBox.information(self, "Остановлено",
+                                    f"Процесс был остановлен пользователем.\n"
+                                    f"Обработано файлов: {processed_count}/{total}")
+        else:
+            QMessageBox.information(self, "Готово",
+                                    f"Обработано файлов: {processed_count}/{total}\n"
+                                    f"Результаты в папке:\n{out_dir}")
+
+
 
 if __name__ == '__main__':
     app = QApplication([])
