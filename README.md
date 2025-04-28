@@ -23,6 +23,8 @@ Left-click + drag to zoom in
 
 Right-click to reset view
 
+- Saving figures to mp4 movie
+
 ## Limitations:
 
 - Full-trace loading: Designed for 2D seismic sections or single gathers (not optimized for large 3D volumes)
@@ -44,6 +46,7 @@ Right-click to reset view
 - Segyio (SEG-Y I/O)
 
 - Scikit-learn (MinMaxScaler for normalization)
+
 
 ## Usage:
 
