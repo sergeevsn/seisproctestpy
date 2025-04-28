@@ -47,6 +47,12 @@ Right-click to reset view
 
 - Scikit-learn (MinMaxScaler for normalization)
 
+- imageio-ffmpeg (Figures to movie)
+
+```
+pip install --upgrade matplotlib PyQt5 numpy sklearn segyio imageio imageio-ffmpeg
+```
+
 
 ## Usage:
 
