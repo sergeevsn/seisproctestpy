@@ -4,6 +4,12 @@ import importlib
 import numpy as np
 import segyio
 import matplotlib.pyplot as plt
+import matplotlib
+import imageio
+import os
+import tempfile
+matplotlib.use('Qt5Agg')
+
 from matplotlib.patches import Rectangle
 from itertools import product
 from sklearn.preprocessing import MinMaxScaler
@@ -11,7 +17,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget,
     QComboBox, QHBoxLayout, QAction, QProgressBar, QSpinBox, QMessageBox,
-    QPushButton, QSizePolicy, QDialog, QTextEdit, QDialogButtonBox
+    QPushButton, QSizePolicy, QDialog, QTextEdit, QDialogButtonBox, QInputDialog
 )
 from PyQt5.QtCore import Qt
 from about import *
@@ -64,16 +70,11 @@ class SeisProcTester(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SeisProcTestPy")
-        # Получаем размеры экрана
         screen = QApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()  # Рабочая область (без панели задач)
-        
-        # Устанавливаем размер окна (например, 80% от рабочей области)
+        screen_geometry = screen.availableGeometry()
         width = int(screen_geometry.width() * 0.9)
         height = int(screen_geometry.height() * 0.9)
         self.resize(width, height)
-        
-        # Центрируем окно (опционально)
         self.move(
             (screen_geometry.width() - width) // 2,
             (screen_geometry.height() - height) // 2
@@ -102,7 +103,7 @@ class SeisProcTester(QMainWindow):
         self.file_label.setMaximumHeight(20)
         self.param_combo = QComboBox()
         self.param_combo.currentIndexChanged.connect(self.on_param_combo_changed)
-        self.param_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)        
+        self.param_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
         self.colormap_combo = QComboBox()
         self.colormap_combo.addItems(['gray', 'seismic', 'PuOr', 'cividis'])
@@ -118,6 +119,9 @@ class SeisProcTester(QMainWindow):
         self.stop_button.setVisible(False)
         self.stop_button.clicked.connect(self.stop_processing)
         self.progress_bar.setVisible(False)
+
+        self.processing_label = QLabel("")
+        self.processing_label.setVisible(False)
 
         # Interaction variables
         self.rect = None
@@ -147,6 +151,7 @@ class SeisProcTester(QMainWindow):
         ctrl_layout.addWidget(QLabel("Gain:")); ctrl_layout.addWidget(self.gain_input)
         main_layout.addLayout(ctrl_layout)
 
+        main_layout.addWidget(self.processing_label)
         progress_layout = QHBoxLayout()
         progress_layout.addWidget(self.progress_bar)
         progress_layout.addWidget(self.stop_button)
@@ -164,6 +169,7 @@ class SeisProcTester(QMainWindow):
         file_menu = menubar.addMenu("File")
         file_menu.addAction(QAction("Open SEG-Y", self, triggered=self.open_file))
         file_menu.addAction(QAction("Save", self, triggered=self.save_segy))
+        file_menu.addAction(QAction("Save Figures", self, triggered=self.save_figures))  # New menu item
         file_menu.addAction(QAction("Exit", self, triggered=self.close))
 
         params_menu = menubar.addMenu("Params")
@@ -176,7 +182,6 @@ class SeisProcTester(QMainWindow):
 
         help_menu = menubar.addMenu("Help")
         help_menu.addAction(QAction("About", self, triggered=self.show_about))
-        
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open SEG-Y File", "", "SEG-Y Files (*.sgy *.segy)")
@@ -184,7 +189,7 @@ class SeisProcTester(QMainWindow):
         self.last_opened_file = path
         with segyio.open(path, "r", ignore_geometry=True) as f:
             data = f.trace.raw[:]
-        self.raw_data = data.astype(float)
+        self.raw_data = data.astype(np.float64)
         self.scaler = MinMaxScaler().fit(self.raw_data.reshape(-1,1))
         self.scaled_data = self.scaler.transform(self.raw_data.reshape(-1,1)).reshape(self.raw_data.shape)
         self.processed_real = None
@@ -208,10 +213,9 @@ class SeisProcTester(QMainWindow):
             QMessageBox.critical(self, "Error", str(e)); return
         self.params_path = path
         self.params_dialog.load_json(path, raw)
-        self.edit_params()  # Open editor immediately after loading
+        self.edit_params()
 
     def edit_params(self):
-        # Pre-show current values
         self.params_dialog.header_label.setText(self.params_dialog.file_name)
         self.params_dialog.text_edit.setPlainText(self.params_dialog.json_text)
         self.params_dialog.exec_()
@@ -255,22 +259,26 @@ class SeisProcTester(QMainWindow):
         if missing:
             QMessageBox.critical(self, "Cannot import", "\n".join(missing)); return
         self.param_combo.setEnabled(False); self.progress_bar.setVisible(True); self.progress_bar.setValue(0)
+        self.processing_label.setVisible(True)
         self.stop_button.setVisible(True)
         QApplication.processEvents()
         real_list = []; self.param_combo.clear(); total=len(self.param_sets); self.processing_stopped=False
         for i, pd in enumerate(self.param_sets):
             if self.processing_stopped:
                 break
+            fn = pd['method'].split('.')[-1]
+            params = {k: v for k, v in pd.items() if k != 'method'}
+            self.processing_label.setText(f"Processing: {fn} with " + ", ".join(f"{k}={v}" for k, v in params.items()))
             QApplication.processEvents()
             try:
                 mod, fn = pd['method'].rsplit('.', 1)
                 func = getattr(importlib.import_module(mod), fn)
-                params = {k: v for k, v in pd.items() if k != 'method'}
                 den = func(self.scaled_data, **params)
             except Exception as e:
                 self.progress_bar.setVisible(False)
                 self.stop_button.setVisible(False)
                 self.param_combo.setEnabled(True)
+                self.processing_label.setVisible(False)
                 QMessageBox.critical(self, "Processing Error", f"Error during processing:\n{str(e)}")
                 return
             inv = self.scaler.inverse_transform(den.reshape(-1,1)).reshape(den.shape)
@@ -282,9 +290,131 @@ class SeisProcTester(QMainWindow):
         self.current_index = 0; self.param_combo.setCurrentIndex(0)
         self.progress_bar.setVisible(False); self.param_combo.setEnabled(True)
         self.stop_button.setVisible(False)
+        self.processing_label.setVisible(False)
         self.update_images()
 
-   
+    def save_figures(self):
+        if self.raw_data is None or self.processed_real is None:
+            QMessageBox.warning(self, "Cannot Save", "Load & process data before saving figures.")
+            return
+
+        # Update visualization to ensure current_xlims and current_ylims are up-to-date
+        self.update_images()
+
+        # Prompt for frame rate (allow fractional FPS)
+        fps, ok = QInputDialog.getDouble(self, "Frame Rate", "Enter frames per second (fps):", 5.0, 0.1, 60.0, 1)
+        if not ok:
+            return
+
+        # Prompt for save location
+        path, _ = QFileDialog.getSaveFileName(self, "Save Movie", "", "MP4 Files (*.mp4)")
+        if not path:
+            return
+
+        # Create temporary directory for frames
+        temp_dir = tempfile.mkdtemp()
+        frame_paths = []
+
+        try:
+            # Parameters for rendering
+            gain = self.gain_input.value()
+            cmap = self.colormap_combo.currentText()
+            orig_disp = self.raw_data.T
+            total_frames = len(self.processed_real)
+
+            # Set up progress bar
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setMaximum(total_frames)
+            self.progress_bar.setValue(0)
+            self.processing_label.setVisible(True)
+            self.processing_label.setText("Generating frames...")
+            QApplication.processEvents()
+
+            # Generate frames
+            for idx in range(total_frames):
+                # Create new figure for each frame
+                fig = plt.figure(figsize=(12, 4))
+                axes = [fig.add_subplot(1, 3, i+1) for i in range(3)]
+
+                # Original
+                vmin, vmax = np.percentile(orig_disp, [gain, 100 - gain]) if gain > 0 else (orig_disp.min(), orig_disp.max())
+                axes[0].imshow(orig_disp, aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+                axes[0].set_title("Original")
+
+                # Processed
+                real = self.processed_real[idx]
+                den_disp = real.T
+                axes[1].imshow(den_disp, aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+                axes[1].set_title("Processed")
+
+                # Difference
+                diff = (self.raw_data - real).T
+                dvmin, dvmax = np.percentile(orig_disp, [gain, 100 - gain]) if gain > 0 else (orig_disp.min(), orig_disp.max())
+                axes[2].imshow(diff, aspect='auto', cmap=cmap, vmin=dvmin, vmax=dvmax)
+                axes[2].set_title("Difference")
+
+                # Apply current zoom to all subplots
+                for i, ax in enumerate(axes):
+                    if self.current_xlims[i] is not None and self.current_ylims[i] is not None:
+                        ax.set_xlim(self.current_xlims[i])
+                        ax.set_ylim(self.current_ylims[i])
+
+                # Suptitle with method and parameters
+                pd = self.param_sets[idx]
+                fn = pd['method'].split('.')[-1]
+                params = {k: v for k, v in pd.items() if k != 'method'}
+                suptitle = f"{fn}: " + ", ".join(f"{k}={v}" for k, v in params.items())
+                fig.suptitle(suptitle, fontsize=12)
+
+                # Save frame as PNG
+                frame_path = os.path.join(temp_dir, f"frame_{idx:04d}.png")
+                fig.savefig(frame_path, bbox_inches='tight')
+                frame_paths.append(frame_path)
+                plt.close(fig)
+
+                # Update progress bar
+                self.progress_bar.setValue(idx + 1)
+                QApplication.processEvents()
+
+            # Hide progress bar and label after frame generation
+            self.progress_bar.setVisible(False)
+            self.processing_label.setVisible(False)
+            QApplication.processEvents()
+
+            # Create video using imageio with frame cropping
+            with imageio.get_writer(path, fps=fps, macro_block_size=1) as writer:
+                for frame_path in frame_paths:
+                    frame = imageio.v2.imread(frame_path)                   
+                    
+                    # Crop to even dimensions
+                    height, width = frame.shape[:2]
+                    even_height = height - (height % 2)  # Nearest even number
+                    even_width = width - (width % 2)      # Nearest even number
+                    if even_height < height or even_width < width:
+                        frame = frame[:even_height, :even_width, :]
+                                       
+                    
+                    writer.append_data(frame)
+
+            QMessageBox.information(self, "Save Successful", f"Movie saved to:\n{path}")
+
+        except Exception as e:
+            self.progress_bar.setVisible(False)
+            self.processing_label.setVisible(False)
+            QMessageBox.critical(self, "Save Error", f"Error saving movie:\n{str(e)}")
+
+        finally:
+            # Clean up temporary files
+            for frame_path in frame_paths:
+                try:
+                    os.remove(frame_path)
+                except OSError:
+                    pass
+            try:
+                os.rmdir(temp_dir)
+            except OSError:
+                pass
+
     def on_param_combo_changed(self, idx):
         if idx >= 0:
             self.current_index = idx
@@ -347,7 +477,7 @@ class SeisProcTester(QMainWindow):
             den_disp = real.T
             vmin, vmax = np.percentile(orig_disp, [gain, 100 - gain])
             self.ax[1].imshow(den_disp, aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-            self.ax[1].set_title("processed")
+            self.ax[1].set_title("Processed")
             diff = (self.raw_data - real).T
             if gain > 0:
                 dvmin = np.percentile(orig_disp, gain)
@@ -408,3 +538,8 @@ class SeisProcTester(QMainWindow):
         self.current_index = new_idx
         self.param_combo.setCurrentIndex(new_idx)
         self.update_images()
+
+if __name__ == '__main__':
+    app = QApplication([])
+    window = SeisProcTester()
+    app.exec_()
